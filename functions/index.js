@@ -9,8 +9,9 @@ const { isPhoneNumberRegistered } = require("./functions/isPhoneNumberRegistered
 const { logPendingTransaction } = require("./functions/logPendingTransaction");
 const { logTransaction } = require("./functions/logTransaction");
 const { payByWallet } = require("./functions/payByWallet");
+const { getRouteInstructions2 } = require("./functions/getRouteInstructions2");
 
-const { isPhoneNumberRegisteredDriver } = require("./functions/drivers/isPhoneNumberRegisteredDriver");
+const { timeBusArrive } = require("./functions/timeBusArrive");
 
 if (!admin.apps.length) {
 	admin.initializeApp({
@@ -28,4 +29,5 @@ exports.cleanRoutes = cleanRoutes;
 exports.getRouteInstructions = getRouteInstructions;
 exports.getRouteBusStopsDetails = getRouteBusStopsDetails;
 exports.payByWallet = payByWallet;
-exports.isPhoneNumberRegisteredDriver = isPhoneNumberRegisteredDriver;
+exports.timeBusArrive = timeBusArrive;
+exports.getRouteInstructions2 = getRouteInstructions2;
