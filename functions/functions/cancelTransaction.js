@@ -3,29 +3,22 @@ const admin = require("firebase-admin");
 
 exports.cancelTransaction = functions.region("asia-southeast1").https.onCall(async (data, context) => {
 	const uid = context.auth.uid;
-	const refNo = data.refNo;
-	functions.logger.log({ uid, refNo });
+	const { transactionID } = data;
+	functions.logger.log({ uid, transactionID });
 
 	return await new Promise(async (resolve, reject) => {
-		// Check if refNo is requested from user
+		let data = { status: "cancelled", cancelledTime: admin.firestore.FieldValue.serverTimestamp(), pending: false };
+
 		await admin
 			.firestore()
-			.collection("users")
-			.doc(uid)
 			.collection("transactionLogs")
-			.doc(refNo)
-			.get()
-			.then((doc) => {
-				if (!doc.exists) resolve({ success: false, errorMsg: "unauthorised to cancel the transaction" });
+			.doc(transactionID)
+			.update(data)
+			.catch((e) => {
+				functions.logger.error(e);
+				reject(e);
 			});
-		let data = { status: "cancelled", cancelledTime: new Date().toISOString(), pending: false };
-
-		await admin
-			.database()
-			.ref("/transactionLogs/" + refNo)
-			.update(data);
-
 		functions.logger.log("Transaction Cancelled");
-		resolve({ success: true, refNo });
+		resolve({ success: true, transactionID });
 	});
 });

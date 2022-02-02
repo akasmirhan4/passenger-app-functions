@@ -3,7 +3,6 @@ const admin = require("firebase-admin");
 
 exports.logTransaction = functions.region("asia-southeast1").https.onRequest(async (request, response) => {
 	let result = request.body.response.body;
-	let batchProcess = [];
 	functions.logger.log("function called");
 	let resultInfo = result.resultInfo;
 	let refNo = result.refNo;
@@ -25,26 +24,21 @@ exports.logTransaction = functions.region("asia-southeast1").https.onRequest(asy
 			break;
 		case "501":
 			status = "paid";
-			let uid = "";
-			let mode = "";
+			let data = null;
 			await admin
-				.database()
-				.ref("/transactionLogs/" + refNo)
+				.firestore()
+				.collection("transactionLogs")
+				.doc(refNo)
 				.get()
-				.then((result) => {
-					if (!result.exists) response.send("refNo does not exist");
-					uid = result.toJSON().uid;
+				.then((doc) => {
+					data = doc.data();
 				});
-			await admin
-				.database()
-				.ref(`/transactionLogs/${refNo}/desc/descMsg`)
-				.get()
-				.then((result) => {
-					if (!result.exists) response.send("descMsg does not exist");
-					functions.logger.log(result.toJSON())
-					mode = result.toJSON();
-				});
+
+			const uid = data.uid;
+			const mode = data.description.mode;
+
 			if (!uid) response.send("uid not recorded");
+			if (!mode) response.send("mode not recorded");
 
 			let walletAmount = 0;
 			await admin
@@ -72,13 +66,11 @@ exports.logTransaction = functions.region("asia-southeast1").https.onRequest(asy
 	}
 	let data = { ...result, respTime: request.body.response.header.respTime, pending: false, status };
 	functions.logger.log(data);
-	batchProcess.push(
-		admin
-			.database()
-			.ref("/transactionLogs/" + refNo)
-			.update(data)
-	);
-	await Promise.all(batchProcess)
+	await admin
+		.firestore()
+		.collection("transactionLogs")
+		.doc(refNo)
+		.update(data)
 		.then((results) => {
 			functions.logger.log("Transaction logged");
 		})

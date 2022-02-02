@@ -2,13 +2,13 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 exports.payByWallet = functions.region("asia-southeast1").https.onCall(async (data, context) => {
 	functions.logger.log({ data });
-	const ticketAmount = data.ticketAmount ? Number(data.ticketAmount) : null;
-	const { desc } = data;
+	const transactionAmount = data.transactionAmount ? Number(data.transactionAmount) : null;
+	const { description } = data;
 	const uid = context.auth.uid;
 
-	if (!ticketAmount) return { success: false, errorMsg: "ticketAmount invalid" };
+	if (!transactionAmount) return { success: false, errorMsg: "transactionAmount invalid" };
 
-	if (!desc) return { success: false, errorMsg: "no desc" };
+	if (!description) return { success: false, errorMsg: "no description" };
 
 	if (!uid) return { success: false, errorMsg: "Missing User ID" };
 
@@ -24,19 +24,20 @@ exports.payByWallet = functions.region("asia-southeast1").https.onCall(async (da
 
 	if (walletAmount === null) return { success: false, errorMsg: "Missing User Document" };
 
-	if (walletAmount < ticketAmount) return { success: false, errorMsg: "insufficient fund" };
+	if (walletAmount < transactionAmount) return { success: false, errorMsg: "insufficient fund" };
 
-	let currentDate = new Date();
-	let refNo = currentDate.getTime().toString() + "0";
+	const newTransactionRef = admin.firestore().collection("transactionLogs").doc();
+	let transactionID = newTransactionRef.id;
 
 	const logData = {
-		refNo,
-		trans_amount: ticketAmount,
-		dateAdded: currentDate.toISOString(),
+		transactionID,
+		transactionAmount,
+		dateAdded: admin.firestore.FieldValue.serverTimestamp(),
 		status: "paid",
-		desc,
+		description,
 		pending: false,
 		uid: uid,
+		userRef: admin.firestore().collection("users").doc(uid),
 	};
 
 	functions.logger.log({ logData });
@@ -47,12 +48,9 @@ exports.payByWallet = functions.region("asia-southeast1").https.onCall(async (da
 			.firestore()
 			.collection("users")
 			.doc(uid)
-			.update({ walletAmount: walletAmount - ticketAmount }),
-		admin
-			.database()
-			.ref("/transactionLogs/" + refNo)
-			.update(logData),
-		admin.firestore().collection("users").doc(uid).collection("transactionLogs").doc(refNo).set({ refNo }),
+			.update({ walletAmount: walletAmount - transactionAmount }),
+		admin.firestore().collection("transactionLogs").doc(transactionID).set(logData),
+		admin.firestore().collection("users").doc(uid).collection("transactionLogs").doc(transactionID).set({ ref: newTransactionRef }),
 	])
 		.then((results) => {
 			functions.logger.log(results);
